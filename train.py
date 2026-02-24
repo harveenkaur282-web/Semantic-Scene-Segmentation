@@ -39,3 +39,9 @@ model = get_model(num_classes)
 model = model.to(device)
 
 print("Model loaded successfully.")
+
+images, masks = next(iter(train_loader))
+
+print("Image shape:", images.shape)
+print("Mask shape:", masks.shape)
+print("Mask unique values:", torch.unique(masks))

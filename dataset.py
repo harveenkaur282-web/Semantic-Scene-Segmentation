@@ -25,6 +25,11 @@ class SegmentationDataset(Dataset):
 
         if self.transform is not None:
             image = self.transform(image)
+        
+        self.value_mapping = {100: 0, 200: 1, 300: 2, 500: 3, 550: 4, 600: 5, 700: 6, 800: 7, 7100: 8, 10000: 9}
+
+        mask = np.array(mask)
+        mapped
 
         mask = torch.as_tensor(
             np.array(mask),
