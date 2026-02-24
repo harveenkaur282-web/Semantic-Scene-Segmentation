@@ -29,11 +29,10 @@ class SegmentationDataset(Dataset):
         self.value_mapping = {100: 0, 200: 1, 300: 2, 500: 3, 550: 4, 600: 5, 700: 6, 800: 7, 7100: 8, 10000: 9}
 
         mask = np.array(mask)
-        mapped
+        mapped_mask = np.zeros_like(mask)
+        for original_value, new_value in self.value_mapping.items():
+            mapped_mask[mask == original_value] = new_value
+        mask = torch.as_tensor(mapped_mask, dtype=torch.long)
 
-        mask = torch.as_tensor(
-            np.array(mask),
-            dtype=torch.long
-        )
 
         return image, mask
