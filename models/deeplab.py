@@ -8,7 +8,7 @@ def get_model(num_classes):
         weights="DEFAULT"
     )
 
-    model.aux_classifier[4] = nn.Conv2d(
+    model.classifier[-1] = nn.Conv2d(
         in_channels=256,
         out_channels=num_classes,
         kernel_size=1

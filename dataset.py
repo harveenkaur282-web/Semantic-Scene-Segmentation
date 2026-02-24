@@ -4,6 +4,8 @@ import torch
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
 import numpy as np
+from torchvision.transforms import functional as F
+from torchvision.transforms import InterpolationMode
 
 class SegmentationDataset(Dataset):
     def __init__(self, image_dir, mask_dir, transform=None):
@@ -23,6 +25,9 @@ class SegmentationDataset(Dataset):
         image = Image.open(img_path).convert("RGB")
         mask = Image.open(mask_path)
 
+        image = F.resize(image, (256, 256), interpolation=InterpolationMode.BILINEAR)
+        mask = F.resize(mask, (256, 256), interpolation=InterpolationMode.NEAREST)
+
         if self.transform is not None:
             image = self.transform(image)
         
@@ -30,8 +35,10 @@ class SegmentationDataset(Dataset):
 
         mask = np.array(mask)
         mapped_mask = np.zeros_like(mask)
+
         for original_value, new_value in self.value_mapping.items():
             mapped_mask[mask == original_value] = new_value
+            
         mask = torch.as_tensor(mapped_mask, dtype=torch.long)
 
 
