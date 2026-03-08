@@ -1,243 +1,221 @@
-# Semantic Scene Segmentation
+# OffRoad Scene Segmentation — Duality Hackathon
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Environment & Dependency Requirements](#environment--dependency-requirements)
-- [Setup Instructions](#setup-instructions)
-- [How to Run Training](#how-to-run-training)
-- [How to Run Testing / Inference](#how-to-run-testing--inference)
-- [Reproducing Final Results](#reproducing-final-results)
-- [Expected Outputs & How to Interpret Them](#expected-outputs--how-to-interpret-them)
+> **Semantic segmentation of off-road terrain** using a fine-tuned SegFormer-B2 transformer with two-stage training, Test-Time Augmentation, and CRF-based post-processing.
 
 ---
 
-## Overview
+## Idea Title
 
-This project implements a semantic scene segmentation model that assigns a class label to every pixel in an image. Images are resized to **256×256** pixels before being fed through the pipeline. The repository includes a full training loop, a segmentation training script, and a dedicated testing/evaluation script.
-
----
-
-## Environment & Dependency Requirements
-
-### Python Version
-- Python 3.8 or higher (3.9+ recommended)
-
-### Core Dependencies
-
-```
-torch>=1.10.0
-torchvision>=0.11.0
-numpy>=1.21.0
-Pillow>=9.0.0
-opencv-python>=4.5.0
-matplotlib>=3.4.0
-scikit-learn>=0.24.0
-tqdm>=4.62.0
-```
-
-Install all dependencies via:
-
-```bash
-pip install -r requirements.txt
-```
-
-Or manually:
-
-```bash
-pip install torch torchvision numpy Pillow opencv-python matplotlib scikit-learn tqdm
-```
-
-### GPU Support (Recommended)
-
-For faster training, a CUDA-compatible GPU is strongly recommended. Verify your CUDA setup with:
-
-```bash
-python -c "import torch; print(torch.cuda.is_available())"
-```
+**OffRoad Terrain Segmentation with SegFormer-B2 & Two-Stage Fine-Tuning**
 
 ---
 
-## Setup Instructions
+## Idea Description
 
-### 1. Clone the Repository
+Off-road autonomous navigation requires robust understanding of unstructured terrain — distinguishing dirt trails from rocks, grass, sky, and obstacles. This project tackles the **Duality Hackathon's Off-Road Segmentation Challenge**, producing pixel-level semantic maps across 6 terrain classes from RGB drone/camera images.
 
-```bash
-git clone https://github.com/harveenkaur282-web/Semantic-Scene-Segmentation.git
-cd Semantic-Scene-Segmentation
+The approach uses a **two-stage training strategy**:
+- **Stage 1** — Backbone frozen, only the decode head is trained to stabilize early learning.
+- **Stage 2** — Full fine-tuning with a lower learning rate, combined loss (CE + Dice), label smoothing, mixed-precision training, and gradient clipping.
+
+At inference, **Test-Time Augmentation (TTA)** with horizontal flipping and multi-scale averaging is applied, followed by **CRF smoothing** to sharpen spatial boundaries. The final model achieves **mIoU of 0.5155** across 5 present test classes.
+
+---
+
+## Technical Details
+
+### Technologies Used
+
+| Category | Stack |
+|---|---|
+| **Core Framework** | Python 3, PyTorch |
+| **Transformer Model** | HuggingFace Transformers — `SegformerForSemanticSegmentation` |
+| **Pretrained Backbone** | `nvidia/segformer-b2-finetuned-ade-512-512` |
+| **Image Augmentation** | Albumentations v2.0+ |
+| **Metrics** | torchmetrics — `MulticlassJaccardIndex` (mIoU) |
+| **Post-Processing** | pydensecrf (CRF smoothing) |
+| **Visualization** | matplotlib, seaborn, OpenCV |
+| **Training Utilities** | tqdm, scikit-learn |
+| **Environment** | Kaggle Notebooks (T4 GPU) |
+
+### Key Hyperparameters
+
+| Parameter | Value |
+|---|---|
+| Input Resolution | 512 × 512 |
+| Batch Size | 8 |
+| Optimizer | AdamW (lr=6e-5, wd=1e-2) |
+| Scheduler | CosineAnnealingLR (T_max=20, eta_min=1e-6) |
+| Epochs | 20 (Stage 1) + 20 (Stage 2) |
+| Loss | CE (label_smoothing=0.1) + Dice (50/50) |
+| Gradient Clipping | max_norm=1.0 |
+| Mixed Precision | torch.cuda.amp (FP16) |
+
+---
+
+## Architecture Overview
+
+```
+Input RGB Image (512×512)
+        │
+        ▼
+┌──────────────────────────────┐
+│   SegFormer-B2 Backbone      │  ← Hierarchical Transformer Encoder
+│   (Mix Transformer Encoder)  │     4 stages, overlapping patch merging
+└──────────────┬───────────────┘
+               │  Multi-scale feature maps
+               ▼
+┌──────────────────────────────┐
+│   All-MLP Decode Head        │  ← Lightweight MLP aggregator
+│   (num_labels=6)             │     Linear projection + upsampling
+└──────────────┬───────────────┘
+               │  Low-res logits (128×128)
+               ▼
+     F.interpolate → 512×512
+               │
+               ▼
+┌──────────────────────────────┐
+│   CombinedLoss               │  ← CrossEntropy (label_smooth=0.1)
+│   (Training only)            │     + Soft Dice Loss
+└──────────────────────────────┘
+
+ ── Inference Pipeline ──────────────────────────────────────────
+  Original Image + H-Flip  →  TTA average logits
+        │
+        ▼
+  argmax(probs)  →  CRF Smoothing  →  Final Segmentation Mask
 ```
 
-### 2. Create a Virtual Environment (Recommended)
+### Six Terrain Classes
+
+| Class ID | Label | Description |
+|---|---|---|
+| 0 | Background | Undefined / unlabeled |
+| 1 | Dirt/Trail | Traversable off-road paths |
+| 2 | Grass/Veg | Vegetation (absent in test set) |
+| 3 | Rock | Rocky terrain |
+| 4 | Sky | Open sky regions |
+| 5 | Obstacle | Non-traversable obstacles |
+
+---
+
+## Database / Data Used
+
+- **No external database.** Dataset provided by Duality Hackathon organizers (Google Cloud Storage).
+- Training set: RGB images + RGB-encoded semantic masks (`Color_Images/` + `Segmentation/`)
+- Mask encoding: Original label values `{0, 1, 2, 3, 27, 39}` → remapped to `{0, 1, 2, 3, 4, 5}`
+- Split: Train / Val / Test directories provided pre-split.
+
+---
+
+## Third-Party Integrations
+
+| Integration | Purpose |
+|---|---|
+| **HuggingFace Hub** | Downloads pretrained `nvidia/segformer-b2-finetuned-ade-512-512` weights |
+| **Kaggle Notebooks** | Training environment with T4 GPU access |
+| **Google Cloud Storage** | Dataset hosting (provided by hackathon organizers) |
+
+> No API keys or external services are required to run inference after downloading model weights.
+
+---
+
+##  Results
+
+| Metric | Score |
+|---|---|
+| mIoU (5 existing classes) | **0.5155** |
+| Dirt/Trail IoU | 0.4961 |
+| Sky IoU | 0.9819 |
+| Obstacle IoU | 0.6165 |
+| Background IoU | 0.4249 |
+| Rock IoU | 0.0582 |
+| Inference Speed | ~X ms/image on T4 |
+
+---
+
+## Getting Started
+
+### Prerequisites
 
 ```bash
-python -m venv venv
-source venv/bin/activate       # On Linux/macOS
-venv\Scripts\activate          # On Windows
+pip install torch torchvision
+pip install transformers timm
+pip install segmentation-models-pytorch
+pip install albumentations
+pip install torchmetrics
+pip install pydensecrf
+pip install opencv-python matplotlib seaborn tqdm scikit-learn
 ```
 
-### 3. Install Dependencies
+### Dataset Setup
+
+Download the two zip files directly from the Duality Hackathon Google Cloud Storage bucket:
+
+| File | Link | Contents |
+|---|---|---|
+| **Training + Validation Set** | [Offroad_Segmentation_Training_Dataset.zip](https://storage.googleapis.com/duality-public-share/Hackathons/Duality%20Hackathon/Offroad_Segmentation_Training_Dataset.zip) | RGB images + segmentation masks for train & val splits |
+| **Test Set** | [Offroad_Segmentation_testImages.zip](https://storage.googleapis.com/duality-public-share/Hackathons/Duality%20Hackathon/Offroad_Segmentation_testImages.zip) | RGB images + masks for evaluation |
+
+Or download via terminal:
 
 ```bash
-pip install -r requirements.txt
+mkdir -p data
+
+# Training set
+wget -O train.zip "https://storage.googleapis.com/duality-public-share/Hackathons/Duality%20Hackathon/Offroad_Segmentation_Training_Dataset.zip"
+
+# Test set
+wget -O test.zip "https://storage.googleapis.com/duality-public-share/Hackathons/Duality%20Hackathon/Offroad_Segmentation_testImages.zip"
+
+# Extract both
+unzip train.zip -d data/
+unzip test.zip -d data/
 ```
 
-##3 4. Dataset
-
-The dataset is sourced from the **Duality Hackathon Off-Road Segmentation Dataset** and organized as follows:
+After extraction, your `data/` folder should look like:
 
 ```
 data/
 ├── Offroad_Segmentation_Training_Dataset/
 │   ├── train/
-│   │   ├── Color_Images/        # 2,857 RGB images (.png)
-│   │   └── Segmentation/        # 2,857 masks (.png)
+│   │   ├── Color_Images/
+│   │   └── Segmentation/
 │   └── val/
-│       ├── Color_Images/        # 317 RGB images (.png)
-│       └── Segmentation/        # 317 masks (.png)
+│       ├── Color_Images/
+│       └── Segmentation/
 └── Offroad_Segmentation_testImages/
-    └── Color_Images/            # 1,002 test images (no masks)
+    ├── Color_Images/
+    └── Segmentation/
 ```
-### Dataset Split Summary
 
-| Split | Images | Masks |
-|---|---|---|
-| Train | 2,857 | 2,857 |
-| Validation | 317 | 317 |
-| Test | 1,002 | None |
-
-### Class Mapping
-
-Masks use raw integer values that are remapped to sequential class IDs (0–9):
-
-| Class ID | Class Name | Raw Mask Value |
-|---|---|---|
-| 0 | Background | 0 |
-| 1 | Trees | 100 |
-| 2 | Lush Bushes | 200 |
-| 3 | Dry Grass | 300 |
-| 4 | Dry Bushes | 500 |
-| 5 | Ground Clutter | 550 |
-| 6 | Logs | 700 |
-| 7 | Rocks | 800 |
-| 8 | Landscape | 7100 |
-| 9 | Sky | 10000 |
-
-###  Download the Dataset
-
-Download and extract the Duality Hackathon Off-Road Segmentation datasets into the `data/` directory:
-
-- [Training Dataset (~2.6 GB)](https://storage.googleapis.com/duality-public-share/Hackathons/Duality%20Hackathon/Offroad_Segmentation_Training_Dataset.zip)
-- [Test Dataset (~1.0 GB)](https://storage.googleapis.com/duality-public-share/Hackathons/Duality%20Hackathon/Offroad_Segmentation_testImages.zip)
----
-
-## How to Run Training
-
-The main training entry point is `train.py`, which implements the full forward pass pipeline with image resizing to 256×256.
+### Training
 
 ```bash
-python train.py
+# Stage 1 — Frozen backbone
+python src/train.py --stage 1 --epochs 20
+
+# Stage 2 — Full fine-tuning
+python src/train.py --stage 2 --epochs 20 --checkpoint checkpoints/stage1_best.pth
 ```
 
-### Common Training Arguments (if supported)
+### Inference
 
 ```bash
-python train.py \
-  --data_dir ./data \
-  --epochs 50 \
-  --batch_size 8 \
-  --lr 0.001 \
-  --save_dir ./checkpoints
+python src/predict.py \
+  --checkpoint checkpoints/best_model.pth \
+  --input data/Offroad_Segmentation_testImages/Color_Images/ \
+  --output outputs/predictions/
 ```
-
-Alternatively, if the project uses `training_segmentation.py` as the script provided by the course/instructor:
-
-```bash
-python training_segmentation.py
-```
-
-> **Note:** Check the top of each script for configurable parameters (paths, hyperparameters, number of classes, etc.) and adjust them to match your dataset before running.
 
 ---
 
-## How to Run Testing / Inference
+## 📁 Repo Structure
 
-Once a model has been trained and a checkpoint saved, run evaluation using `testing_segmentation.py`:
-
-```bash
-python testing_segmentation.py
-```
-
-### Common Testing Arguments (if supported)
-
-```bash
-python testing_segmentation.py \
-  --checkpoint ./checkpoints/best_model.pth \
-  --data_dir ./data/test \
-  --output_dir ./predictions
-```
-
-This will load the trained model weights, run inference on the test set, and save the predicted segmentation masks.
+See [`REPO_STRUCTURE.md`](./REPO_STRUCTURE.md) for the full breakdown.
 
 ---
 
-## Reproducing Final Results
+## 📄 License
 
-To reproduce the final reported results from scratch:
-
-1. **Clone and set up** the environment as described above.
-2. **Prepare the dataset** in the expected folder structure.
-3. **Run training** using the provided script:
-   ```bash
-   python train.py
-   ```
-4. **Identify the best checkpoint** (typically saved as `best_model.pth` or the final epoch checkpoint in `./checkpoints/`).
-5. **Run evaluation** on the test set:
-   ```bash
-   python testing_segmentation.py --checkpoint ./checkpoints/best_model.pth
-   ```
-6. Compare the output metrics (mIoU, pixel accuracy) against the reported values.
-
-> **Tip:** Ensure that image preprocessing (resize to 256×256, normalization values) in the testing script matches exactly what was used during training.
-
----
-
-## Expected Outputs & How to Interpret Them
-
-### During Training
-
-You should see per-epoch output similar to:
-
-```
-Epoch [1/50] | Loss: 1.2345 | Train Acc: 0.72 | Val mIoU: 0.45
-Epoch [2/50] | Loss: 1.0821 | Train Acc: 0.76 | Val mIoU: 0.49
-...
-```
-
-- **Loss**: Should decrease steadily. If it plateaus early, consider adjusting the learning rate.
-- **Train Accuracy**: Pixel-level accuracy on training data; expected to rise over epochs.
-- **Val mIoU**: Mean Intersection over Union on the validation set — the primary metric for segmentation quality. Higher is better (max = 1.0).
-
-### During Testing / Inference
-
-- **Predicted segmentation masks** are saved as image files (typically `.png`) where each pixel value corresponds to a class label (e.g., 0 = background, 1 = road, 2 = sky, etc.).
-- **Color-coded visualizations** may be generated if the script includes a colormap, making it easy to visually inspect which regions were assigned to which class.
-- **Evaluation metrics** printed to console typically include:
-  - `mIoU` (Mean Intersection over Union) — overall segmentation performance across all classes
-  - `Pixel Accuracy` — percentage of correctly labeled pixels
-  - Per-class IoU — breakdown of accuracy per semantic category
-
-### Interpreting Segmentation Masks
-
-Each pixel in the output mask is assigned an integer class ID. For example:
-
-| Pixel Value | Class       |
-|-------------|-------------|
-| 0           | Background  |
-| 1           | Road        |
-| 2           | Sky         |
-| 3           | Person      |
-| ...         | ...         |
-
-Refer to the dataset's class definitions (or the label mapping defined in the code) to identify what each class ID represents.
-
----
+This project was developed for the **Duality Hackathon**. Dataset copyright belongs to Duality AI.
