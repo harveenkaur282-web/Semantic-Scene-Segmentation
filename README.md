@@ -3,7 +3,9 @@
 > **Semantic segmentation of off-road terrain** using a fine-tuned SegFormer-B2 transformer with two-stage training, Test-Time Augmentation, and CRF-based post-processing.
 
 ---
-# DRIVE LINK THAT HAS PITCH VIDEO, DEMO VIDEO, ANSWERS OF ASSESSMENT, AND THE MAIN NOTEBOOK FILE = https://drive.google.com/drive/folders/16_LIy5N4i8Z7vOtLKY8HVT3izpA6StNK
+# DRIVE LINK THAT HAS PPT(POWER POINT PRESENTATION), PITCH VIDEO, DEMO VIDEO, ANSWERS OF ASSESSMENT, AND THE MAIN NOTEBOOK FILE = https://drive.google.com/drive/folders/16_LIy5N4i8Z7vOtLKY8HVT3izpA6StNK
+
+# KINDLY REFER final-2 (10) AS OUR MAIN IMPLEMENTATION
 
 ## Idea Title
 
