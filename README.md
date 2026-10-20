@@ -1,5 +1,34 @@
-# OffRoad Scene Segmentation - Duality Hackathon
+# Off-Road Semantic Scene Segmentation
 
+**Duality AI Off-Road Segmentation Challenge** · Pixel-wise terrain understanding with a fine-tuned SegFormer-B2 transformer.
+
+This project explores semantic segmentation for off-road navigation, where an image must be labelled by terrain class rather than assigned a single category.
+
+**Reported test mIoU: 0.5155** across the evaluated test-set classes. The per-class results and known weak classes are shown below; these are important context when interpreting the aggregate score.
+
+## At a glance
+
+- **Model:** SegFormer-B2 (nvidia/segformer-b2)
+- **Training:** frozen decode-head warm-up followed by full fine-tuning
+- **Loss/training techniques:** cross-entropy + Dice loss, label smoothing, mixed precision
+- **Inference experiments:** test-time augmentation and CRF post-processing
+- **Environment:** Kaggle T4 GPU
+- **Main implementation:** [cleaned notebook](notebooks/main_implementation.ipynb)
+
+## Results
+
+| Evaluated class | IoU |
+|---|---:|
+| Dirt/Trail | 0.4961 |
+| Sky | 0.9819 |
+| Obstacle | 0.6165 |
+| Background | 0.4249 |
+| Rock | 0.0582 |
+| **Reported mIoU** | **0.5155** |
+
+The low Rock IoU highlights a clear failure mode and a useful direction for future work: class-imbalance analysis, targeted augmentation, and per-class error inspection. Scores are reported as recorded in the project; compare variants only when they use the same split and evaluation setup.
+
+---
 [![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?style=flat&logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![HuggingFace](https://img.shields.io/badge/Hugging%20Face-Transformers-FFD21E?style=flat)](https://huggingface.co/docs/transformers/index)
