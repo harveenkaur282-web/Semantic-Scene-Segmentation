@@ -29,13 +29,6 @@ This project explores semantic segmentation for off-road navigation, where an im
 The low Rock IoU highlights a clear failure mode and a useful direction for future work: class-imbalance analysis, targeted augmentation, and per-class error inspection. Scores are reported as recorded in the project; compare variants only when they use the same split and evaluation setup.
 
 ---
-[![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?style=flat&logo=pytorch&logoColor=white)](https://pytorch.org/)
-[![HuggingFace](https://img.shields.io/badge/Hugging%20Face-Transformers-FFD21E?style=flat)](https://huggingface.co/docs/transformers/index)
-
-> State-of-the-art semantic segmentation of off-road terrain using a fine-tuned SegFormer-B2 transformer. Features two-stage training, Test-Time Augmentation (TTA), and CRF-based post-processing for sharpened spatial boundaries.
-
----
 
 ### Quick Links
 - **[Main Implementation Notebook](notebooks/main_implementation.ipynb)** - Cleaned and structured for presentation
